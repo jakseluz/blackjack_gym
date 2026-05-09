@@ -1,33 +1,34 @@
-# Gymnasium Examples
-Some simple examples of Gymnasium environments and wrappers.
-For some explanations of these examples, see the [Gymnasium documentation](https://gymnasium.farama.org).
+# Blackjack custom Gymnasium environment game
 
-### Environments
-This repository hosts the examples that are shown [on the environment creation documentation](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/).
-- `GridWorldEnv`: Simplistic implementation of gridworld environment
+**TODO**
 
-### Wrappers
-This repository hosts the examples that are shown [on wrapper documentation](https://gymnasium.farama.org/api/wrappers/).
-- `ClipReward`: A `RewardWrapper` that clips immediate rewards to a valid range
-- `DiscreteActions`: An `ActionWrapper` that restricts the action space to a finite subset
-- `RelativePosition`: An `ObservationWrapper` that computes the relative position between an agent and a target
-- `ReacherRewardWrapper`: Allow us to weight the reward terms for the reacher environment
+## Requirements
 
-### Contributing
-If you would like to contribute, follow these steps:
-- Fork this repository
-- Clone your fork
-- Set up pre-commit via `pre-commit install`
+- Python\
+  [configuration file](./pyproject.toml) (pyproject.toml)
 
-PRs may require accompanying PRs in [the documentation repo](https://github.com/Farama-Foundation/Gymnasium/tree/main/docs).
-
-
-## Installation
-
-To install your new environment, run the following commands:
-
-```{shell}
-cd blackjack_env
+Install project and its dependencies with:
+--
+``` bash
 pip install -e .
 ```
+- (in the project root directory)
 
+## Usage
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/jakseluz/blackjack_gym.git
+   cd blackjack_gym
+   ```
+
+2. Check **[main.ipynb](./main.ipynb) notebook file** for the tutorial (**TODO**).
+
+## Author
+
+- Jakub Łabuz ([jakseluz](https://github.com/jakseluz))
+
+---
+
+_For questions or contributions, please open an issue or submit a pull request!_
