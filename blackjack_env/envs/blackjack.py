@@ -4,6 +4,7 @@ import numpy as np
 from enum import Enum
 
 MAX_POINTS = 21
+DEALER_LIMIT = 17
 
 
 class Actions(Enum):
@@ -12,6 +13,11 @@ class Actions(Enum):
     DOUBLE_DOWN = 2
     SPLIT = 3
     INSURANCE = 4
+
+
+class Casino_ace(Enum):
+    STAND_ON_ALL_17S = 0
+    HIT_SOFT_17 = 1
 
 
 class BlackjackEnv(gym.Env):
@@ -61,28 +67,39 @@ class BlackjackEnv(gym.Env):
         Returns:
             tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
         """
+        reward = 0.0
+
         if action == Actions.HIT.value:
             self.player_cards.append(self._get_cards(1))
         elif action == Actions.STAND.value:
-            pass
+            self._dealer_moves()
         elif action == Actions.DOUBLE_DOWN.value:
-            pass
+            self.player_cards.append(self._get_cards(1))
+            self._dealer_moves()
         elif action == Actions.SPLIT.value:
+            # TODO
             pass
         elif action == Actions.INSURANCE.value:
-            pass
+            if not self._is_blackjack(self.dealer_cards):
+                reward = -0.5
 
-        reward = 0.0
-        if sum(self.player_cards) >= MAX_POINTS or sum(self.dealer_cards) >= MAX_POINTS:
+        terminated = False
+        if sum(self.player_cards) >= MAX_POINTS:
+            reward = -1.0
+            terminated = True
+        elif sum(self.dealer_cards) >= MAX_POINTS:
+            reward = 1.0
             terminated = True
         else:
-            terminated = False
+            # TODO
+            pass
+
         observation = self._get_observation()
         info = {"action_mask": self._get_action_mask()}
         truncated = False
         return observation, reward, terminated, truncated, info
 
-    def render(self):
+    def render(self) -> None:
         """Renders the current state of the environment. If the render mode is "human", it will display a window with the current state. If the render mode is "rgb_array", it will return an RGB array representing the current state."""
         pass
 
@@ -99,11 +116,21 @@ class BlackjackEnv(gym.Env):
             self.deck.remove(v)
         return picked[0] if len(picked) == 1 else picked
 
-    def _dealer_move(self):
-        """Performs the dealer's move according to the rules of Blackjack. The dealer will keep drawing cards until their points are 17 or higher."""
-        if sum(self.dealer_cards) >= 17:
-            return
-        self.dealer_cards.append(self._get_cards(1))
+    def _dealer_moves(self) -> None:
+        """Performs the dealer's move according to the rules of Blackjack. The dealer will keep drawing cards until their points are {DEALER_LIMIT} or higher."""
+        while sum(self.dealer_cards) < DEALER_LIMIT:
+            self.dealer_cards.append(self._get_cards(1))
+
+    def _is_blackjack(cards: list[int]) -> bool:
+        """Checks if there is a blackjack situation in a given deck
+        Args:
+            cards (list[int]): a given deck
+        Returns:
+            bool: True if there is a blackjack, False otherwise
+        """
+        if set(cards) in ({1, 10}, {11, 10}):
+            return True
+        return False
 
     def _get_observation(self) -> dict:
         """Calculates the current observation based on the player's cards and the dealer's visible card. The observation includes the player's points, the number of not used aces, and the dealer's visible card.
@@ -117,6 +144,7 @@ class BlackjackEnv(gym.Env):
                 points -= 10
                 player_usable_aces -= 1
                 self.player_cards[self.player_cards.index(11)] = 1
+
         return {"player_points": points, "not_used_ace": player_usable_aces, "dealer_card": self.dealer_cards[0]}
 
     def _get_action_mask(self) -> np.ndarray:
@@ -125,4 +153,15 @@ class BlackjackEnv(gym.Env):
             np.ndarray: An array of shape (5,) where each element is 1 if the corresponding action is valid and 0 otherwise.
         """
         mask = np.ones(5, dtype=np.int8)
+        if len(self.player_cards) > 2:
+            mask[Actions.DOUBLE_DOWN] = 0
+            mask[Actions.SPLIT] = 0
+            mask[Actions.INSURANCE] = 0
+        if self.dealer_cards[0] not in (1, 11):
+            mask[Actions.INSURANCE] = 0
+        if self.player_cards[0] != self.player_cards[1]:
+            mask[Actions.SPLIT] = 0
+
+        mask[Actions.SPLIT] = 0  # TODO
+
         return mask
