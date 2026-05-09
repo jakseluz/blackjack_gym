@@ -34,9 +34,9 @@ class BlackjackEnv(gym.Env):
         """
         self.observation_space = spaces.Dict(
             {
-                "player_points": spaces.Discrete(21),
+                "player_points": spaces.Discrete(31),
                 "not_used_ace": spaces.Discrete(4),
-                "dealer_card": spaces.Discrete(10),
+                "dealer_card": spaces.Discrete(11, start=1),
             }
         )
 
