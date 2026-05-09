@@ -14,7 +14,7 @@ from blackjack_env.envs.settings import (
 
 
 class BlackjackEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "terminal"], "render_fps": 4}
 
     def __init__(
         self,
@@ -73,7 +73,7 @@ class BlackjackEnv(gym.Env):
         self.dealer_cards = picked[2:]
 
         observation = self._get_observation()
-        info = {}
+        info = self._get_info()
         return observation, info
 
     def step(self, action) -> tuple[dict, float, bool, bool, dict]:
@@ -121,13 +121,26 @@ class BlackjackEnv(gym.Env):
             tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
         """
         observation = self._get_observation()
-        info = {"action_mask": self._get_action_mask()}
+        info = self._get_info()
         truncated = False
         return observation, reward, terminated, truncated, info
 
+    def _get_info(self):
+        """Helper method to return info for the outer world. The info includes the action mask, the number of cards left in the deck, the player's cards, and the dealer's cards.
+        Returns:
+            dict: A dictionary containing the action mask, the number of cards left in the deck, the player's cards, and the dealer's cards.
+        """
+        return {
+            "action_mask": self._get_action_mask(),
+            "deck_status": len(self.deck),
+            "player_cards": self.player_cards,
+            "dealer_cards": self.dealer_cards,
+        }
+
     def render(self) -> None:
-        """Renders the current state of the environment. If the render mode is "human", it will display a window with the current state. If the render mode is "rgb_array", it will return an RGB array representing the current state."""
-        pass
+        """Renders the current state of the environment."""
+        if self.render_mode == "terminal":
+            print(f"Player's cards: {self.player_cards},\nDealer's visible card: {self.dealer_cards[0]}\n")
 
     def _get_cards(self, num) -> int | list:
         """Draws a specified number of cards from the deck and returns them. The drawn cards are removed from the deck.
