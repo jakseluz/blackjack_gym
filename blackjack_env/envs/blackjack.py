@@ -170,7 +170,7 @@ class BlackjackEnv(gym.Env):
 
         return reward
 
-    def _is_blackjack(cards: list[int]) -> bool:
+    def _is_blackjack(self, cards: list[int]) -> bool:
         """Checks if there is a blackjack situation in a given deck
         Args:
             cards (list[int]): a given deck
@@ -203,16 +203,16 @@ class BlackjackEnv(gym.Env):
         """
         mask = np.ones(5, dtype=np.int8)
         if sum(self.player_cards) >= MAX_POINTS:
-            mask[Actions.HIT] = 0
+            mask[Actions.HIT.value] = 0
         if len(self.player_cards) > 2:
-            mask[Actions.DOUBLE_DOWN] = 0
-            mask[Actions.SPLIT] = 0
-            mask[Actions.INSURANCE] = 0
+            mask[Actions.DOUBLE_DOWN.value] = 0
+            mask[Actions.SPLIT.value] = 0
+            mask[Actions.INSURANCE.value] = 0
         if self.dealer_cards[0] not in (1, 11):
-            mask[Actions.INSURANCE] = 0
+            mask[Actions.INSURANCE.value] = 0
         if self.player_cards[0] != self.player_cards[1]:
-            mask[Actions.SPLIT] = 0
+            mask[Actions.SPLIT.value] = 0
 
-        mask[Actions.SPLIT] = 0  # TODO
+        mask[Actions.SPLIT.value] = 0  # TODO
 
         return mask
