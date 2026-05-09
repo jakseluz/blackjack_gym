@@ -29,6 +29,10 @@ pip install -e .
 
 - Jakub Łabuz ([jakseluz](https://github.com/jakseluz))
 
+## Used resources:
+- [Playing Card Deck](https://opengameart.org/content/bridge-sized-playing-card-deck-png-cc0)
+- [Gymnasium Environment Template](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/)
+
 ---
 
 _For questions or contributions, please open an issue or submit a pull request!_
