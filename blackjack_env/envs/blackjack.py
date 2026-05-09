@@ -1,32 +1,36 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-from enum import Enum
 
-MAX_POINTS = 21
-DEALER_LIMIT = 17
-
-
-class Actions(Enum):
-    HIT = 0
-    STAND = 1
-    DOUBLE_DOWN = 2
-    SPLIT = 3
-    INSURANCE = 4
-
-
-class Casino_ace(Enum):
-    STAND_ON_ALL_17S = 0
-    HIT_SOFT_17 = 1
+from blackjack_env.envs.settings import (
+    MAX_POINTS,
+    DEALER_LIMIT,
+    Actions,
+    Game_version,
+    Casino_ace,
+    Reward,
+    SurrenderRule,
+)
 
 
 class BlackjackEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None):
+    def __init__(
+        self,
+        render_mode=None,
+        game_version=Game_version.AMERICAN,
+        casino_ace=Casino_ace.STAND_ON_ALL_17S,
+        blackjack_reward=Reward.blackjack32,
+        surrender_rule=SurrenderRule.NOT_AVAILABLE,
+    ):
         """Initializes the Blackjack environment. The observation space consists of the player's points, the number of not used aces, and the dealer's visible card. The action space consists of 5 actions: hit, stand, double down, split, and insurance.
         Args:
             render_mode (str, optional): The mode to render the environment. Defaults to None.
+            game_version (Game_version, optional): The version of the game to play. Defaults to Game_version.AMERICAN.
+            casino_ace (Casino_ace, optional): The rule for the dealer's behavior with aces. Defaults to Casino_ace.STAND_ON_ALL_17S.
+            blackjack_reward (Reward, optional): The reward for getting a blackjack. Defaults to Reward.blackjack32.
+            surrender_rule (SurrenderRule, optional): The rule for surrendering. Defaults to SurrenderRule.NOT_AVAILABLE.
         """
         self.observation_space = spaces.Dict(
             {
@@ -41,6 +45,18 @@ class BlackjackEnv(gym.Env):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
+        assert game_version in Game_version
+        self.game_version = game_version
+
+        assert casino_ace in Casino_ace
+        self.casino_ace = casino_ace
+
+        assert blackjack_reward in Reward
+        self.blackjack_reward = blackjack_reward
+
+        assert surrender_rule in SurrenderRule
+        self.surrender_rule = surrender_rule
+
     def reset(self, seed=None, options=None) -> tuple[dict, dict]:
         """Resets the environment to an initial state and returns the initial observation and info.
         Args:
@@ -52,7 +68,7 @@ class BlackjackEnv(gym.Env):
         super().reset(seed=seed)
 
         self.deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
-        picked = self._get_cards(4)
+        picked = self._get_cards(3) if self.game_version == Game_version.AMERICAN else self._get_cards(4)
         self.player_cards = picked[:2]
         self.dealer_cards = picked[2:]
 
@@ -67,33 +83,43 @@ class BlackjackEnv(gym.Env):
         Returns:
             tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
         """
+        terminated = False
         reward = 0.0
+
+        if self.game_version == Game_version.AMERICAN:
+            if self._is_blackjack(self.dealer_cards):
+                reward += self._dealer_moves()
+                return self._return_step_info(reward=reward, terminated=True)
 
         if action == Actions.HIT.value:
             self.player_cards.append(self._get_cards(1))
         elif action == Actions.STAND.value:
-            self._dealer_moves()
+            reward += self._dealer_moves()
+            terminated = True
         elif action == Actions.DOUBLE_DOWN.value:
             self.player_cards.append(self._get_cards(1))
-            self._dealer_moves()
+            reward += self._dealer_moves()
+            terminated = True
+            reward *= 2
         elif action == Actions.SPLIT.value:
             # TODO
             pass
         elif action == Actions.INSURANCE.value:
             if not self._is_blackjack(self.dealer_cards):
                 reward = -0.5
+            else:
+                terminated = True
 
-        terminated = False
-        if sum(self.player_cards) >= MAX_POINTS:
-            reward = -1.0
-            terminated = True
-        elif sum(self.dealer_cards) >= MAX_POINTS:
-            reward = 1.0
-            terminated = True
-        else:
-            # TODO
-            pass
+        return self._return_step_info(reward=reward, terminated=terminated)
 
+    def _return_step_info(self, reward: float, terminated: bool) -> tuple[dict, float, bool, bool, dict]:
+        """Helper method to return the step information in the correct format.
+        Args:
+            reward (float): The reward to return.
+            terminated (bool): Whether the episode has terminated.
+        Returns:
+            tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
+        """
         observation = self._get_observation()
         info = {"action_mask": self._get_action_mask()}
         truncated = False
@@ -116,10 +142,33 @@ class BlackjackEnv(gym.Env):
             self.deck.remove(v)
         return picked[0] if len(picked) == 1 else picked
 
-    def _dealer_moves(self) -> None:
-        """Performs the dealer's move according to the rules of Blackjack. The dealer will keep drawing cards until their points are {DEALER_LIMIT} or higher."""
+    def _dealer_moves(self) -> float:
+        """Performs the dealer's move according to the rules of Blackjack and calculates the outcome. The dealer will keep drawing cards until their points are {DEALER_LIMIT} or higher. Then the game ends.
+        You probably want to add a result of the method to a variable, not to replace its value.
+        Returns:
+            float: a reward value gained at the end of a game
+        """
         while sum(self.dealer_cards) < DEALER_LIMIT:
             self.dealer_cards.append(self._get_cards(1))
+
+        reward = 0.0
+        player_score = sum(self.player_cards)
+        dealer_score = sum(self.player_cards)
+        if player_score > MAX_POINTS:
+            reward = -1.0
+        elif dealer_score > MAX_POINTS:
+            reward = 1.0
+        elif player_score > dealer_score:
+            if self._is_blackjack(self.player_cards):
+                reward = self.blackjack_reward
+            else:
+                reward = 1.0
+        elif player_score == dealer_score:
+            reward = 0.5  # experimental value
+        else:
+            reward = -1.0
+
+        return reward
 
     def _is_blackjack(cards: list[int]) -> bool:
         """Checks if there is a blackjack situation in a given deck
@@ -153,6 +202,8 @@ class BlackjackEnv(gym.Env):
             np.ndarray: An array of shape (5,) where each element is 1 if the corresponding action is valid and 0 otherwise.
         """
         mask = np.ones(5, dtype=np.int8)
+        if sum(self.player_cards) >= MAX_POINTS:
+            mask[Actions.HIT] = 0
         if len(self.player_cards) > 2:
             mask[Actions.DOUBLE_DOWN] = 0
             mask[Actions.SPLIT] = 0
