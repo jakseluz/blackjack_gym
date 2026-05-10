@@ -48,18 +48,27 @@ class BlackjackEnv(gym.Env):
         self.render_mode = render_mode
 
         if self.render_mode == "human":
+            pygame.init()
+            pygame.display.init()
+            pygame.font.init()
             # Pygame setup variables
             self.window_size = 512  # Size of the Pygame window
             self.window = None  # The window object
             self.clock = None  # Controls the framerate
             image_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "playingcards_bridgesize_png"))
-            self.card_images = [
-                pygame.transform.scale(
-                    pygame.image.load(os.path.join(image_dir, l + "-" + str(num) + ".png")), (48, 75)
+            self.card_images = {
+                l
+                + "-"
+                + str(num): pygame.transform.scale(
+                    pygame.image.load(os.path.join(image_dir, l + "-" + str(num) + ".png")), (90, 150)
                 )
                 for num in range(1, 14)
                 for l in ("C", "D", "H", "S")
-            ]
+            }
+            self.drawn_cards = {
+                "player": [],
+                "dealer": [],
+            }
 
         assert game_version in Game_version
         self.game_version = game_version
@@ -83,8 +92,13 @@ class BlackjackEnv(gym.Env):
         """
         super().reset(seed=seed)
 
-        self.deck = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11] * 4
-        picked = self._get_cards(3) if self.game_version == Game_version.AMERICAN else self._get_cards(4)
+        self.deck = {
+            (l + "-" + str(num)): (num if num <= 10 else 10) for num in range(1, 14) for l in ("C", "D", "H", "S")
+        }
+        picked = self._get_cards([2, 1]) if self.game_version == Game_version.AMERICAN else self._get_cards([2, 2])
+        for i in range(len(picked)):
+            if picked[i] == 1:
+                picked[i] = 11
         self.player_cards = picked[:2]
         self.dealer_cards = picked[2:]
 
@@ -110,12 +124,12 @@ class BlackjackEnv(gym.Env):
                 return self._return_step_info(reward=reward, terminated=True)
 
         if action == Actions.HIT.value:
-            self.player_cards.append(self._get_cards(1))
+            self.player_cards.append(self._get_cards([1, 0]))
         elif action == Actions.STAND.value:
             reward += self._dealer_moves()
             terminated = True
         elif action == Actions.DOUBLE_DOWN.value:
-            self.player_cards.append(self._get_cards(1))
+            self.player_cards.append(self._get_cards([1, 0]))
             reward += self._dealer_moves()
             terminated = True
             reward *= 2
@@ -130,13 +144,14 @@ class BlackjackEnv(gym.Env):
 
         if self.render_mode == "human":
             self._render_frame()
-        return self._return_step_info(reward=reward, terminated=terminated)
+        return self._return_step_info(reward=reward, terminated=terminated, action=action)
 
-    def _return_step_info(self, reward: float, terminated: bool) -> tuple[dict, float, bool, bool, dict]:
+    def _return_step_info(self, reward: float, terminated: bool, action: int) -> tuple[dict, float, bool, bool, dict]:
         """Helper method to return the step information in the correct format.
         Args:
             reward (float): The reward to return.
             terminated (bool): Whether the episode has terminated.
+            action (int): The action that was taken.
         Returns:
             tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
         """
@@ -145,8 +160,10 @@ class BlackjackEnv(gym.Env):
         truncated = False
         return observation, reward, terminated, truncated, info
 
-    def _get_info(self):
+    def _get_info(self, action: int | None = None) -> dict:
         """Helper method to return info for the outer world. The info includes the action mask, the number of cards left in the deck, the player's cards, and the dealer's cards.
+        Args:
+            action (int | None, optional): The action that was taken. Defaults to None.
         Returns:
             dict: A dictionary containing the action mask, the number of cards left in the deck, the player's cards, and the dealer's cards.
         """
@@ -155,6 +172,7 @@ class BlackjackEnv(gym.Env):
             "deck_status": len(self.deck),
             "player_cards": self.player_cards,
             "dealer_cards": self.dealer_cards,
+            "taken_action": action,
         }
 
     def render(self) -> None:
@@ -162,17 +180,29 @@ class BlackjackEnv(gym.Env):
         if self.render_mode == "terminal":
             print(f"Player's cards: {self.player_cards},\nDealer's visible card: {self.dealer_cards[0]}\n")
 
-    def _get_cards(self, num) -> int | list:
+    def _get_cards(self, num: list[int]) -> int | list[int]:
         """Draws a specified number of cards from the deck and returns them. The drawn cards are removed from the deck.
         Args:
-            num (int): The number of cards to draw.
+            num (list[int]): A list of integers specifying the number of cards to draw for each player. The length of the list should be equal to the number of players (2 by default).
         Returns:
-            int | list: A single card if num is 1, otherwise a list of drawn cards.
+            int | list[int]: A single card if num is 1, otherwise a list of drawn cards.
         """
-        idxs = self.np_random.choice(len(self.deck), size=num, replace=False)
+        idxs = self.np_random.choice(list(self.deck.keys()), size=sum(num), replace=False)
         picked = [self.deck[i] for i in idxs]
-        for v in picked:
-            self.deck.remove(v)
+
+        if self.render_mode == "human":
+            images = [self.card_images[i] for i in idxs]
+            j = 0
+            for i, img in enumerate(images):
+                if i >= num[j]:
+                    j += 1
+                self.drawn_cards[list(self.drawn_cards.keys())[j]].append(img)
+
+        for v in idxs:
+            del self.deck[v]
+            if self.render_mode == "human":
+                del self.card_images[v]
+
         return picked[0] if len(picked) == 1 else picked
 
     def _dealer_moves(self) -> float:
@@ -182,18 +212,18 @@ class BlackjackEnv(gym.Env):
             float: a reward value gained at the end of a game
         """
         while sum(self.dealer_cards) < DEALER_LIMIT:
-            self.dealer_cards.append(self._get_cards(1))
+            self.dealer_cards.append(self._get_cards([0, 1]))
 
         reward = 0.0
         player_score = sum(self.player_cards)
-        dealer_score = sum(self.player_cards)
+        dealer_score = sum(self.dealer_cards)
         if player_score > MAX_POINTS:
             reward = -1.0
         elif dealer_score > MAX_POINTS:
             reward = 1.0
         elif player_score > dealer_score:
             if self._is_blackjack(self.player_cards):
-                reward = self.blackjack_reward
+                reward = self.blackjack_reward.value
             else:
                 reward = 1.0
         elif player_score == dealer_score:
@@ -252,8 +282,6 @@ class BlackjackEnv(gym.Env):
 
     def _render_frame(self) -> None:
         if self.window is None and self.render_mode == "human":
-            pygame.init()
-            pygame.display.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
@@ -261,11 +289,20 @@ class BlackjackEnv(gym.Env):
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((0, 255, 0))
 
-        pygame.draw.rect(canvas, (0, 0, 255), pygame.Rect(106, 200, 50, 50))
+        # pygame.draw.rect(canvas, (0, 0, 255), pygame.Rect(106, 200, 50, 50))
 
         font = pygame.font.Font(None, 36)
         text_title = font.render("Blackjack", True, (0, 0, 0))
-        canvas.blit(text_title, (106, 20))
+        canvas.blit(text_title, (200, 20))
+
+        player_text = font.render("Player", True, (0, 0, 0))
+        canvas.blit(player_text, (50, 250))
+        for i, card in enumerate(self.drawn_cards["player"]):
+            canvas.blit(card, (50 + i * 60, 300))
+        dealer_text = font.render("Dealer", True, (0, 0, 0))
+        canvas.blit(dealer_text, (50, 50))
+        for i, card in enumerate(self.drawn_cards["dealer"]):
+            canvas.blit(card, (50 + i * 60, 100))
 
         if self.render_mode == "human":
             pygame.event.pump()
@@ -276,6 +313,8 @@ class BlackjackEnv(gym.Env):
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
 
     def close(self):
-        if self.window is not None:
-            pygame.display.quit()
-            pygame.quit()
+        if self.render_mode == "human":
+            if self.window is not None:
+                pygame.font.quit()
+                pygame.display.quit()
+                pygame.quit()
