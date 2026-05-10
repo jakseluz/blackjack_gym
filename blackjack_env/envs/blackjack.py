@@ -38,15 +38,13 @@ class BlackjackEnv(gym.Env):
         """
         self.observation_space = spaces.Dict(
             {
-                "player_points": spaces.Discrete(32),
+                "player_points": spaces.Discrete(MAX_POINTS + 2),
                 "not_used_ace": spaces.Discrete(4),
                 "dealer_card": spaces.Discrete(11, start=1),
             }
         )
 
         self.action_space = spaces.Discrete(5)
-
-        self.status = "playing"
 
         self.intelligence_mode = intelligence_mode
 
@@ -67,10 +65,9 @@ class BlackjackEnv(gym.Env):
                 11: -1,
                 1: -1,
             }
-            self.running_count = 0
             self.observation_space = spaces.Dict(
                 {
-                    "player_points": spaces.Discrete(32),
+                    "player_points": spaces.Discrete(MAX_POINTS + 2),
                     "not_used_ace": spaces.Discrete(4),
                     "dealer_card": spaces.Discrete(11, start=1),
                     "running_count": spaces.Discrete(41, start=-20),
@@ -125,14 +122,20 @@ class BlackjackEnv(gym.Env):
             tuple[dict, dict]: A tuple containing the initial observation and info.
         """
         super().reset(seed=seed)
+        self.status = "playing"
+        if self.intelligence_mode:
+            self.running_count = 0
+        if self.render_mode == "human":
+            self.drawn_cards = {
+                "player": [],
+                "dealer": [],
+            }
 
         self.deck = {
             (l + "-" + str(num)): (num if num <= 10 else 10) for num in range(1, 14) for l in ("C", "D", "H", "S")
         }
         picked = self._get_cards([2, 2]) if self.game_version == Game_version.AMERICAN else self._get_cards([2, 1])
-        for i in range(len(picked)):
-            if picked[i] == 1:
-                picked[i] = 11
+
         self.player_cards = picked[:2]
         self.dealer_cards = picked[2:]
 
@@ -149,12 +152,27 @@ class BlackjackEnv(gym.Env):
         Returns:
             tuple[dict, float, bool, bool, dict]: A tuple containing the resulting observation, reward, terminated, truncated, and info.
         """
+        mask = self._get_action_mask()
+        if mask[action] == 0:
+            raise ValueError(f"Illegal action {action} for this state (masked out).")
+
         terminated = False
         reward = 0.0
 
-        if self.game_version == Game_version.AMERICAN:
-            if self._is_blackjack(self.dealer_cards):
-                reward += self._dealer_moves()
+        if self.game_version == Game_version.AMERICAN and len(self.player_cards) == 2 and len(self.dealer_cards) == 2:
+            player_bj = self._is_blackjack(self.player_cards)
+            dealer_bj = self._is_blackjack(self.dealer_cards)
+
+            if player_bj:
+                reward = 0.0 if dealer_bj else float(self.blackjack_reward.value)
+                return self._return_step_info(reward=reward, terminated=True, action=action)
+
+            # dealer peek (upraszczamy): jeśli dealer ma BJ, to tylko INSURANCE może zmienić wynik
+            if dealer_bj:
+                if action == Actions.INSURANCE.value and self.dealer_cards[0] == 11:
+                    reward = 0.0  # net 0: -1 (bet) +1 (insurance)
+                else:
+                    reward = -1.0
                 return self._return_step_info(reward=reward, terminated=True, action=action)
 
         if action == Actions.HIT.value:
@@ -171,10 +189,8 @@ class BlackjackEnv(gym.Env):
             # TODO
             pass
         elif action == Actions.INSURANCE.value:
-            if not self._is_blackjack(self.dealer_cards):
-                reward = -0.5
-            else:
-                terminated = True
+            # jeśli doszliśmy tutaj, to dealer nie miał BJ (w AMERICAN), więc insurance przegrywa
+            reward = -0.5
 
         if self.render_mode == "human":
             self._render_frame()
@@ -223,6 +239,7 @@ class BlackjackEnv(gym.Env):
         """
         idxs = self.np_random.choice(list(self.deck.keys()), size=sum(num), replace=False)
         picked = [self.deck[i] for i in idxs]
+        picked = [11 if c == 1 else c for c in picked]
 
         if self.render_mode == "human":
             images = [self.card_images[i] for i in idxs]
@@ -239,7 +256,7 @@ class BlackjackEnv(gym.Env):
 
         if self.intelligence_mode:
             for i, card in enumerate(picked):
-                if self.game_version == Game_version.AMERICAN and i >= 2:
+                if self.game_version == Game_version.AMERICAN and num == [2, 2] and i >= 3:
                     break
                 self.running_count += self.card_costs[card]
 
@@ -254,23 +271,23 @@ class BlackjackEnv(gym.Env):
         self.status = "dealer_turn"
         if self.intelligence_mode and self.game_version == Game_version.AMERICAN:
             self.running_count += self.card_costs[self.dealer_cards[1]]
-        while sum(self.dealer_cards) < DEALER_LIMIT:
+
+        dealer_points, _ = self._handle_value_and_usable_aces(self.dealer_cards)
+        while dealer_points < DEALER_LIMIT:
             self.dealer_cards.append(self._get_cards([0, 1]))
+            dealer_points, _ = self._handle_value_and_usable_aces(self.dealer_cards)
 
         reward = 0.0
-        player_score = sum(self.player_cards)
-        dealer_score = sum(self.dealer_cards)
+        player_score, _ = self._handle_value_and_usable_aces(self.player_cards)
+        dealer_score, _ = self._handle_value_and_usable_aces(self.dealer_cards)
         if player_score > MAX_POINTS:
             reward = -1.0
         elif dealer_score > MAX_POINTS:
             reward = 1.0
         elif player_score > dealer_score:
-            if self._is_blackjack(self.player_cards):
-                reward = self.blackjack_reward.value
-            else:
-                reward = 1.0
+            reward = self.blackjack_reward.value if self._is_blackjack(self.player_cards) else 1.0
         elif player_score == dealer_score:
-            reward = 0.5  # experimental value
+            reward = 0.0
         else:
             reward = -1.0
 
@@ -283,9 +300,7 @@ class BlackjackEnv(gym.Env):
         Returns:
             bool: True if there is a blackjack, False otherwise
         """
-        if set(cards) in ({1, 10}, {11, 10}):
-            return True
-        return False
+        return len(cards) == 2 and set(cards) == {10, 11}
 
     def _get_observation(self) -> dict:
         """Calculates the current observation based on the player's cards and the dealer's visible card. The observation includes the player's points, the number of not used aces, and the dealer's visible card.
@@ -294,7 +309,14 @@ class BlackjackEnv(gym.Env):
         """
         points, player_usable_aces = self._handle_value_and_usable_aces(self.player_cards)
 
-        observation = {"player_points": points, "not_used_ace": player_usable_aces, "dealer_card": self.dealer_cards[0]}
+        if points > MAX_POINTS:
+            points = MAX_POINTS + 1
+
+        observation = {
+            "player_points": points,
+            "not_used_ace": player_usable_aces,
+            "dealer_card": self.dealer_cards[0],
+        }
         if self.intelligence_mode:
             observation["running_count"] = self.running_count
         return observation
