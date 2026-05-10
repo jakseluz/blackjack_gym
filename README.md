@@ -35,4 +35,6 @@ pip install -e .
 
 ---
 
-_For questions or contributions, please open an issue or submit a pull request!_
+_For questions or contributions, please open an issue or submit a pull request!_  
+
+3. Sprawozdanie z projektu (https://www.overleaf.com/project/6a01078b024e8d1800c6078a)
