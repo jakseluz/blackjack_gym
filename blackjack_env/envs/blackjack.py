@@ -38,7 +38,7 @@ class BlackjackEnv(gym.Env):
         """
         self.observation_space = spaces.Dict(
             {
-                "player_points": spaces.Discrete(31),
+                "player_points": spaces.Discrete(32),
                 "not_used_ace": spaces.Discrete(4),
                 "dealer_card": spaces.Discrete(11, start=1),
             }
@@ -70,7 +70,7 @@ class BlackjackEnv(gym.Env):
             self.running_count = 0
             self.observation_space = spaces.Dict(
                 {
-                    "player_points": spaces.Discrete(31),
+                    "player_points": spaces.Discrete(32),
                     "not_used_ace": spaces.Discrete(4),
                     "dealer_card": spaces.Discrete(11, start=1),
                     "running_count": spaces.Discrete(41, start=-20),
@@ -292,18 +292,26 @@ class BlackjackEnv(gym.Env):
         Returns:
             dict: A dictionary containing the player's points, the number of not used aces, and the dealer's visible card.
         """
-        player_usable_aces = self.player_cards.count(11)
-        points = sum(self.player_cards)
-        if points > MAX_POINTS:
-            if player_usable_aces > 0:
-                points -= 10
-                player_usable_aces -= 1
-                self.player_cards[self.player_cards.index(11)] = 1
+        points, player_usable_aces = self._handle_value_and_usable_aces(self.player_cards)
 
         observation = {"player_points": points, "not_used_ace": player_usable_aces, "dealer_card": self.dealer_cards[0]}
         if self.intelligence_mode:
             observation["running_count"] = self.running_count
         return observation
+
+    def _handle_value_and_usable_aces(self, cards: list[int]) -> tuple[int, int]:
+        """Calculates the total points of a hand and the number of usable aces. A usable ace is an ace that can be counted as 11 without the hand going over 21.
+        Args:
+            cards (list[int]): A list of integers representing the cards in the hand.
+        Returns:
+            tuple[int, int]: A tuple containing the total points and the number of usable aces.
+        """
+        points = sum(cards)
+        usable_aces = cards.count(11)
+        while points > MAX_POINTS and usable_aces > 0:
+            points -= 10
+            usable_aces -= 1
+        return points, usable_aces
 
     def _get_action_mask(self) -> np.ndarray:
         """Calculates the action mask based on the current state of the environment. The action mask indicates which actions are valid for the current state.
@@ -311,8 +319,13 @@ class BlackjackEnv(gym.Env):
             np.ndarray: An array of shape (5,) where each element is 1 if the corresponding action is valid and 0 otherwise.
         """
         mask = np.ones(5, dtype=np.int8)
-        if sum(self.player_cards) >= MAX_POINTS:
+        player_points, _ = self._handle_value_and_usable_aces(self.player_cards)
+
+        if player_points >= MAX_POINTS:
             mask[Actions.HIT.value] = 0
+            mask[Actions.DOUBLE_DOWN.value] = 0
+            mask[Actions.SPLIT.value] = 0
+            mask[Actions.INSURANCE.value] = 0
         if len(self.player_cards) > 2:
             mask[Actions.DOUBLE_DOWN.value] = 0
             mask[Actions.SPLIT.value] = 0
