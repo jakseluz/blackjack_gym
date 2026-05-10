@@ -25,6 +25,7 @@ class BlackjackEnv(gym.Env):
         casino_ace=Casino_ace.STAND_ON_ALL_17S,
         blackjack_reward=Reward.blackjack32,
         surrender_rule=SurrenderRule.NOT_AVAILABLE,
+        intelligence_mode=False,
     ):
         """Initializes the Blackjack environment. The observation space consists of the player's points, the number of not used aces, and the dealer's visible card. The action space consists of 5 actions: hit, stand, double down, split, and insurance.
         Args:
@@ -33,6 +34,7 @@ class BlackjackEnv(gym.Env):
             casino_ace (Casino_ace, optional): The rule for the dealer's behavior with aces. Defaults to Casino_ace.STAND_ON_ALL_17S.
             blackjack_reward (Reward, optional): The reward for getting a blackjack. Defaults to Reward.blackjack32.
             surrender_rule (SurrenderRule, optional): The rule for surrendering. Defaults to SurrenderRule.NOT_AVAILABLE.
+            intelligence_mode (bool, optional): Whether to include the running count in the observation space. Defaults to False.
         """
         self.observation_space = spaces.Dict(
             {
@@ -45,6 +47,35 @@ class BlackjackEnv(gym.Env):
         self.action_space = spaces.Discrete(5)
 
         self.status = "playing"
+
+        self.intelligence_mode = intelligence_mode
+
+        if intelligence_mode:
+            # Karty 2, 3, 4, 5, 6 mają wartość +1
+            # Karty 7, 8, 9 mają wartość 0
+            # Karty 10, Walet, Dama, Król, As mają wartość -1
+            self.card_costs = {
+                2: 1,
+                3: 1,
+                4: 1,
+                5: 1,
+                6: 1,
+                7: 0,
+                8: 0,
+                9: 0,
+                10: -1,
+                11: -1,
+                1: -1,
+            }
+            self.running_count = 0
+            self.observation_space = spaces.Dict(
+                {
+                    "player_points": spaces.Discrete(31),
+                    "not_used_ace": spaces.Discrete(4),
+                    "dealer_card": spaces.Discrete(11, start=1),
+                    "running_count": spaces.Discrete(41, start=-20),
+                }
+            )
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -206,6 +237,12 @@ class BlackjackEnv(gym.Env):
             if self.render_mode == "human":
                 del self.card_images[v]
 
+        if self.intelligence_mode:
+            for i, card in enumerate(picked):
+                if self.game_version == Game_version.AMERICAN and i >= 2:
+                    break
+                self.running_count += self.card_costs[card]
+
         return picked[0] if len(picked) == 1 else picked
 
     def _dealer_moves(self) -> float:
@@ -215,6 +252,8 @@ class BlackjackEnv(gym.Env):
             float: a reward value gained at the end of a game
         """
         self.status = "dealer_turn"
+        if self.intelligence_mode and self.game_version == Game_version.AMERICAN:
+            self.running_count += self.card_costs[self.dealer_cards[1]]
         while sum(self.dealer_cards) < DEALER_LIMIT:
             self.dealer_cards.append(self._get_cards([0, 1]))
 
@@ -261,7 +300,10 @@ class BlackjackEnv(gym.Env):
                 player_usable_aces -= 1
                 self.player_cards[self.player_cards.index(11)] = 1
 
-        return {"player_points": points, "not_used_ace": player_usable_aces, "dealer_card": self.dealer_cards[0]}
+        observation = {"player_points": points, "not_used_ace": player_usable_aces, "dealer_card": self.dealer_cards[0]}
+        if self.intelligence_mode:
+            observation["running_count"] = self.running_count
+        return observation
 
     def _get_action_mask(self) -> np.ndarray:
         """Calculates the action mask based on the current state of the environment. The action mask indicates which actions are valid for the current state.

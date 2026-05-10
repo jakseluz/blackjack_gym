@@ -24,7 +24,7 @@ class Game_version(Enum):
 
 class Casino_ace(Enum):
     STAND_ON_ALL_17S = 0
-    HIT_SOFT_17 = 1
+    HIT_SOFT_17 = 1  # TODO
 
 
 class Reward(Enum):
