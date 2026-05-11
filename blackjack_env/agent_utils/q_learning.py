@@ -106,6 +106,6 @@ def plot_rewards_history(rewards_history: list[float]) -> None:
     plt.plot(rewards_history)
     plt.xlabel("Episode")
     plt.ylabel("Total Reward")
-    plt.title("Rewards History - learning curve for Q-learning agent")
+    plt.title("Rewards History Q-learning agent")
     plt.grid()
     plt.show()
