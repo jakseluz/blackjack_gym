@@ -8,7 +8,7 @@ class Actions(Enum):
     HIT = 0
     STAND = 1
     DOUBLE_DOWN = 2
-    SPLIT = 3
+    SPLIT = 3  # TODO
     INSURANCE = 4
 
 
@@ -22,9 +22,10 @@ class Game_version(Enum):
     EUROPEAN = 1
 
 
+# TODO
 class Casino_ace(Enum):
     STAND_ON_ALL_17S = 0
-    HIT_SOFT_17 = 1  # TODO
+    HIT_SOFT_17 = 1
 
 
 class Reward(Enum):
