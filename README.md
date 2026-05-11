@@ -1,6 +1,12 @@
 # Blackjack custom Gymnasium environment game
 
-**TODO**
+Project focuses on a Blackjack game implementation using the Python library _Gymnasium_. The game environment can be used for reinforcement learning projects.
+
+Blackjack rules
+- [in Polish](https://pl.wikipedia.org/wiki/Blackjack)
+- [in English](https://en.wikipedia.org/wiki/Blackjack)
+
+**Note:** The current implementation does not support SPLIT moves. Besides that, most other standard rules apply. There are still areas for improvement - some of them are marked with #TODO comment in the code.
 
 ## Requirements
 
@@ -23,11 +29,11 @@ pip install -e .
    cd blackjack_gym
    ```
 
-2. Check **[main.ipynb](./main.ipynb) notebook file** for the tutorial (**TODO**).
+2. Check **./[main.ipynb](./main.ipynb) notebook file** for the tutorial/ information.
 
-## Author
-
-- Jakub Łabuz ([jakseluz](https://github.com/jakseluz))
+## Authors
+- **Jakub Łabuz** ([jakseluz](https://github.com/jakseluz)) - Blackjack
+- **Maciej Maj** ([mmaj1](https://github.com/mmaj1)) - tests and report
 
 ## Used resources:
 - [Playing Card Deck](https://opengameart.org/content/bridge-sized-playing-card-deck-png-cc0)
@@ -37,4 +43,4 @@ pip install -e .
 
 _For questions or contributions, please open an issue or submit a pull request!_  
 
-3. Sprawozdanie z projektu (https://www.overleaf.com/project/6a01078b024e8d1800c6078a)
+3. Project report (in Polish by Maciej Maj) (https://www.overleaf.com/project/6a01078b024e8d1800c6078a)
