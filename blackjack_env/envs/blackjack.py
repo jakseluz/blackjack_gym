@@ -3,6 +3,7 @@ from gymnasium import spaces
 import numpy as np
 import pygame
 import os
+import time
 
 from blackjack_env.envs.settings import (
     MAX_POINTS,
@@ -141,8 +142,7 @@ class BlackjackEnv(gym.Env):
 
         observation = self._get_observation()
         info = self._get_info()
-        if self.render_mode == "human":
-            self._render_frame()
+        self._refresh_human_render()
         return observation, info
 
     def step(self, action) -> tuple[dict, float, bool, bool, dict]:
@@ -177,11 +177,14 @@ class BlackjackEnv(gym.Env):
 
         if action == Actions.HIT.value:
             self.player_cards.append(self._get_cards([1, 0]))
+            self._refresh_human_render()
         elif action == Actions.STAND.value:
+            self._refresh_human_render()
             reward += self._dealer_moves()
             terminated = True
         elif action == Actions.DOUBLE_DOWN.value:
             self.player_cards.append(self._get_cards([1, 0]))
+            self._refresh_human_render()
             reward += self._dealer_moves()
             terminated = True
             reward *= 2
@@ -191,9 +194,8 @@ class BlackjackEnv(gym.Env):
         elif action == Actions.INSURANCE.value:
             # jeśli doszliśmy tutaj, to dealer nie miał BJ (w AMERICAN), więc insurance przegrywa
             reward = -0.5
+            self._refresh_human_render()
 
-        if self.render_mode == "human":
-            self._render_frame()
         return self._return_step_info(reward=reward, terminated=terminated, action=action)
 
     def _return_step_info(self, reward: float, terminated: bool, action: int) -> tuple[dict, float, bool, bool, dict]:
@@ -229,6 +231,15 @@ class BlackjackEnv(gym.Env):
         """Renders the current state of the environment."""
         if self.render_mode == "terminal":
             print(f"Player's cards: {self.player_cards},\nDealer's visible card: {self.dealer_cards[0]}\n")
+
+    def _refresh_human_render(self, time_interval: float = 3.0) -> None:
+        """Refreshes the Pygame rendering of the environment. This method is called after every action to update the visual representation of the game state.
+        Args:
+            time_interval (float, optional): The amount of time to wait after rendering the frame. Defaults to 3.0 seconds.
+        """
+        if self.render_mode == "human":
+            self._render_frame()
+            time.sleep(time_interval)
 
     def _get_cards(self, num: list[int]) -> int | list[int]:
         """Draws a specified number of cards from the deck and returns them. The drawn cards are removed from the deck.
@@ -271,11 +282,13 @@ class BlackjackEnv(gym.Env):
         self.status = "dealer_turn"
         if self.intelligence_mode and self.game_version == Game_version.AMERICAN:
             self.running_count += self.card_costs[self.dealer_cards[1]]
+        self._refresh_human_render()
 
         dealer_points, _ = self._handle_value_and_usable_aces(self.dealer_cards)
         while dealer_points < DEALER_LIMIT:
             self.dealer_cards.append(self._get_cards([0, 1]))
             dealer_points, _ = self._handle_value_and_usable_aces(self.dealer_cards)
+            self._refresh_human_render()
 
         reward = 0.0
         player_score, _ = self._handle_value_and_usable_aces(self.player_cards)
