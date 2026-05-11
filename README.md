@@ -29,7 +29,8 @@ pip install -e .
    cd blackjack_gym
    ```
 
-2. Check **./[main.ipynb](./main.ipynb) notebook file** for the tutorial/ information.
+2. Check **./notebooks/[main.ipynb](./notebooks/main.ipynb) file** for the tutorial/ information.
+3. More detailed analysis available (in Polish) in **./notebooks/[report.ipynb](./notebooks/report.ipynb)** 
 
 ## Authors
 - **Jakub Łabuz** ([jakseluz](https://github.com/jakseluz)) - Blackjack
@@ -43,4 +44,4 @@ pip install -e .
 
 _For questions or contributions, please open an issue or submit a pull request!_  
 
-3. Project report (in Polish by Maciej Maj) (https://www.overleaf.com/project/6a01078b024e8d1800c6078a)
+4. Project report (in Polish by Maciej Maj) (https://www.overleaf.com/project/6a01078b024e8d1800c6078a)
