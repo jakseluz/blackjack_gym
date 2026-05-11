@@ -25,7 +25,7 @@ class BlackjackEnv(gym.Env):
         casino_ace=Casino_ace.STAND_ON_ALL_17S,
         blackjack_reward=Reward.blackjack32,
         surrender_rule=SurrenderRule.NOT_AVAILABLE,
-        intelligence_mode=False,
+        intelligence_mode=True,
     ):
         """Initializes the Blackjack environment. The observation space consists of the player's points, the number of not used aces, and the dealer's visible card. The action space consists of 5 actions: hit, stand, double down, split, and insurance.
         Args:

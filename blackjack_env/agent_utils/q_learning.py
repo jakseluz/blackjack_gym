@@ -22,7 +22,10 @@ def q_learning(
     n_player_points = env.observation_space["player_points"].n
     n_not_used_aces = env.observation_space["not_used_ace"].n
     n_dealer_cards = env.observation_space["dealer_card"].n
-    n_running_counts = env.observation_space["running_count"].n if "running_count" in env.observation_space else 1
+    has_running_count = (
+        isinstance(env.observation_space, gym.spaces.Dict) and "running_count" in env.observation_space.spaces
+    )
+    n_running_counts = env.observation_space.spaces["running_count"].n if has_running_count else 1
     total_states = n_player_points * n_not_used_aces * n_dealer_cards * n_running_counts
     q_table = np.zeros((total_states, env.action_space.n))
 
@@ -34,7 +37,7 @@ def q_learning(
         total_reward = 0
 
         while not done:
-            state_index = get_state_index(state)
+            state_index = get_state_index(state, has_running_count)
 
             action_mask = info["action_mask"].astype(bool)
             allowed_actions = np.flatnonzero(action_mask)
@@ -56,7 +59,7 @@ def q_learning(
             if done:
                 next_max = 0.0
             else:
-                next_state_index = get_state_index(next_state)
+                next_state_index = get_state_index(next_state, has_running_count)
                 next_max = np.max(q_table[next_state_index][next_allowed_actions])
             # except IndexError as e:
             #     print("IndexError:", e)
@@ -81,7 +84,7 @@ def q_learning(
     return q_table, rewards_history
 
 
-def get_state_index(state):
+def get_state_index(state, has_running_count: bool = False):
     """Converts the state dictionary to a unique index for the Q-table.
     Args:
         state (dict): The state dictionary containing player points, not used aces, dealer card, and optionally running count.
@@ -91,8 +94,8 @@ def get_state_index(state):
     p = state["player_points"]
     d = state["not_used_ace"]
     a = state["dealer_card"] - 1
-    r = state["running_count"] + 20 if "running_count" in state else 0
-    m = 41 if "running_count" in state else 1
+    r = state["running_count"] + 20 if has_running_count else 0
+    m = 41 if has_running_count else 1
     # p * (max_d * max_a * max_r) + d * (max_a * max_r) + a * max_r + r
     return p * (4 * 11 * m) + d * 11 * m + a * m + r
 
@@ -106,6 +109,6 @@ def plot_rewards_history(rewards_history: list[float]) -> None:
     plt.plot(rewards_history)
     plt.xlabel("Episode")
     plt.ylabel("Total Reward")
-    plt.title("Rewards History Q-learning agent")
+    plt.title("Rewards History - Q-learning agent")
     plt.grid()
     plt.show()
