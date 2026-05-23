@@ -16,7 +16,7 @@ from blackjack_env.envs.settings import (
 )
 
 
-class BlackjackEnv(gym.Env):
+class BlackjackEnvV0(gym.Env):
     metadata = {"render_modes": ["human", "terminal"], "render_fps": 10}
 
     def __init__(

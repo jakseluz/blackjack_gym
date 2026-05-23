@@ -6,8 +6,8 @@ build-backend = "hatchling.build"
 packages = ["blackjack_env"]
 
 [project]
-name = "blackjack_env"
-version = "0.0.1"
+name = "blackjack_gym"
+version = "0.1.0"
 dependencies = [
   "gymnasium",
   "matplotlib",
