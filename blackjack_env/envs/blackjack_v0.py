@@ -145,7 +145,9 @@ class BlackjackEnvV0(gym.Env):
         self._refresh_human_render()
         return observation, info
 
-    def step(self, action) -> tuple[dict, float, bool, bool, dict]:
+    def step(
+        self, action, reward_percentage=1.0
+    ) -> tuple[dict, float, bool, bool, dict]:
         """Performs the given action in the environment and returns the resulting observation, reward, terminated, truncated, and info.
         Args:
             action (int): The action to perform, represented as an integer corresponding to the Actions enum.
@@ -164,7 +166,11 @@ class BlackjackEnvV0(gym.Env):
             dealer_bj = self._is_blackjack(self.dealer_cards)
 
             if player_bj:
-                reward = 0.0 if dealer_bj else float(self.blackjack_reward.value)
+                reward = (
+                    0.0
+                    if dealer_bj
+                    else float(self.blackjack_reward.value) * reward_percentage
+                )
                 return self._return_step_info(reward=reward, terminated=True, action=action)
 
             # dealer peek (upraszczamy): jeśli dealer ma BJ, to tylko INSURANCE może zmienić wynik
@@ -172,7 +178,7 @@ class BlackjackEnvV0(gym.Env):
                 if action == Actions.INSURANCE.value and self.dealer_cards[0] == 11:
                     reward = 0.0  # net 0: -1 (bet) +1 (insurance)
                 else:
-                    reward = -1.0
+                    reward = -1.0 * reward_percentage
                 return self._return_step_info(reward=reward, terminated=True, action=action)
 
         if action == Actions.HIT.value:
@@ -180,12 +186,12 @@ class BlackjackEnvV0(gym.Env):
             self._refresh_human_render()
         elif action == Actions.STAND.value:
             self._refresh_human_render()
-            reward += self._dealer_moves()
+            reward += self._dealer_moves() * reward_percentage
             terminated = True
         elif action == Actions.DOUBLE_DOWN.value:
             self.player_cards.append(self._get_cards([1, 0]))
             self._refresh_human_render()
-            reward += self._dealer_moves()
+            reward += self._dealer_moves() * reward_percentage
             terminated = True
             reward *= 2
         elif action == Actions.SPLIT.value:
@@ -193,7 +199,7 @@ class BlackjackEnvV0(gym.Env):
             pass
         elif action == Actions.INSURANCE.value:
             # jeśli doszliśmy tutaj, to dealer nie miał BJ (w AMERICAN), więc insurance przegrywa
-            reward = -0.5
+            reward = -0.5 * reward_percentage
             self._refresh_human_render()
 
         return self._return_step_info(reward=reward, terminated=terminated, action=action)
