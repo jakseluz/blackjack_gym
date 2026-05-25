@@ -12,9 +12,12 @@ class BlackjackEnvV1(BlackjackEnvV0):
             dtype=np.float32,
         )
         self.phase = "betting"
+        self.bet_percentage = 1.0
 
     def reset(self, seed=None, options=None) -> tuple[dict, dict]:
         super().reset(seed=seed)
+        self.phase = "betting"
+        self.bet_percentage = 1.0
         observation = self._get_observation()
         info = self._get_info()
         return observation, info
