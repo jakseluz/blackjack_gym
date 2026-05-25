@@ -106,3 +106,37 @@ def test_env_PPO(
     
     print("Saved runs under:", root_dir)
     print("Eval points per run:", [len(r.timesteps) for r in results])
+
+    plot_eval_results(
+        results,
+        save_path=os.path.join(root_dir, f"ppo_learning_curve_{time.time()}.png"),
+    )
+
+
+def plot_eval_results(results: list[EvalResults], save_path: str | None = None) -> None:
+    T = results[0].timesteps
+    Y = np.vstack([r.mean_rewards for r in results])
+
+    mean_across = Y.mean(axis=0)
+    std_across = Y.std(axis=0, ddof=0)
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(T, mean_across, linewidth=2, label="mean evaluation reward across runs")
+    ax.fill_between(
+        T,
+        mean_across - std_across,
+        mean_across + std_across,
+        alpha=0.3,
+        label="std deviation across runs",
+    )
+    ax.set_xlabel("timesteps")
+    ax.set_ylabel("mean episode reward")
+    ax.set_title("PPO learning curve on Blackjack4game-v1 (mean +- std)")
+    ax.grid(True)
+    ax.legend()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight")
+
+    plt.show()
+    plt.close(fig)
