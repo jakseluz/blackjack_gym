@@ -74,9 +74,20 @@ def test_env_PPO(
     results: list[EvalResults] = []
 
     for i in range(n_runs):
+        print(f"Starting run {i + 1}/{n_runs} with seed {base_seed + i}...")
         seed = base_seed + i
         run_dir = os.path.join(root_dir, f"seed_{seed}_run_{i}")
         os.makedirs(run_dir, exist_ok=True)
+
+        try:
+            env_train.reset(seed=seed)
+        except TypeError:
+            env_train.reset()
+
+        try:
+            env_eval.reset(seed=seed + 10_000)
+        except TypeError:
+            env_eval.reset()
 
         eval_callback = EvalLoggerCallback(
             eval_env=env_eval,
@@ -101,8 +112,8 @@ def test_env_PPO(
             )
         )
 
-        env_train.close()
-        env_eval.close()
+    env_train.close()
+    env_eval.close()
     
     print("Saved runs under:", root_dir)
     print("Eval points per run:", [len(r.timesteps) for r in results])
