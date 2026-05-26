@@ -19,12 +19,6 @@ Blackjack rules
 - Python\
   [configuration file](./pyproject.toml) (pyproject.toml)
 
-Install project and its dependencies with:
---
-``` bash
-pip install -e .
-```
-- (in the project root directory)
 
 ## Usage
 
@@ -34,8 +28,14 @@ pip install -e .
    git clone https://github.com/jakseluz/blackjack_gym.git
    cd blackjack_gym
    ```
+2. Install project and its dependencies with:
+    --
+    ``` bash
+    pip install -e .
+    ```
+    - (in the project root directory; see the point above)
 
-2. Use the environment in a selected version:
+3. Use the environment in a selected version:
     ```python
     import gymnasium as gym
     import blackjack_env
@@ -48,18 +48,32 @@ pip install -e .
 
     # use it like other gymnasium environments;
     ```
-3. To see how to use the gymnasium environment, see: [gymnasium documentation](https://gymnasium.farama.org/introduction/basic_usage/).
+4. To see how to use the gymnasium environment, see: [gymnasium documentation](https://gymnasium.farama.org/introduction/basic_usage/).
 
-3. Check **./notebooks/ directory** for the tutorial/ information:
+5. Check **./notebooks/ directory** for the tutorial/ information:
     - **./notebooks/[main.ipynb](./notebooks/main.ipynb) file** - Blackjack4game-v0 tutorial
     **./notebooks/[bet_example.ipynb](./notebooks/bet_example.ipynb) file** - additional info about Blackjack4game-v1 version
-4. More detailed analysis available (in Polish) in
+6. More detailed analysis available (in Polish) in
     - **./notebooks/[report.ipynb](./notebooks/report.ipynb)**
     - **./notebooks/[report_continuous_env.ipynb](./notebooks/report_continuous_env.ipynb)**
 
+7. Result files used in learning etc. are located in [./results/](./results/):
+    - [q_learning files](./results/q_learning/)
+    - [q_learning plots](./results/plots/)
+    - [PPO files - next to the above folders in seperate directories inside the ./results/ catalogue](./results/)
+
+## Code
+1. [The environment directory](./blackjack_env/envs/):
+    - [**Blackjack4game-v0**](./blackjack_env/envs/blackjack_v0.py)
+    - [**Blackjack4game-v1**](./blackjack_env/envs/blackjack_v1.py)
+2. [Agent learning utilities](./blackjack_env/agent_utils/).
+3. [Wrappers used by the v1 version](./blackjack_env/wrappers/).
+
+
+
 ## Authors
 - **Jakub Łabuz** ([jakseluz](https://github.com/jakseluz)) - Blackjack
-- **Maciej Maj** ([mmaj1](https://github.com/mmaj1)) - tests and report
+- **Maciej Maj** ([mmaj1](https://github.com/mmaj1)) - most of the tests and reports
 
 ## Used resources:
 - [Playing Card Deck](https://opengameart.org/content/bridge-sized-playing-card-deck-png-cc0)
